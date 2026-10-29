@@ -11,6 +11,12 @@ secrets/
 *service-account*.json
 *-sa.json
 
+# Saved API responses — may contain third-party PII / meeting links / passwords
+# (e.g. postman_response_booking_list.txt: prospect emails, Zoom password, join URLs)
+postman_response_*
+*_response_*.json
+*_response_*.txt
+
 # Node
 node_modules/
 

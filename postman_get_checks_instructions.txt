@@ -1,0 +1,112 @@
+================================================================================
+POSTMAN — CALENDLY READ CHECKS (for the MarketingIQ webhook setup)
+Last updated: 2026-10-29
+================================================================================
+
+PURPOSE
+Verify, from our side, that a Calendly booking (e.g. a test booking) landed and
+carried the right attribution data — and that the webhook subscription feeding
+Simple Digital's MarketingIQ tool is healthy. All requests below are READ-ONLY
+(HTTP GET); none of them change anything in Calendly.
+
+WHAT THESE CHECKS CAN AND CAN'T SHOW
+  CAN:  the booking exists in Calendly, who booked, the tracking/UTM it carried,
+        the form Q&A answers, and whether the webhook subscription is still
+        active / not failing.
+  CANNOT: the actual webhook payloads Calendly POSTed, or MarketingIQ's record of
+        what it received. Calendly exposes no delivery log, and MarketingIQ is
+        Simple Digital's tool (no access). Final "it arrived + was attributed"
+        confirmation still comes from Matt.
+
+--------------------------------------------------------------------------------
+ONE-TIME SETUP IN POSTMAN
+--------------------------------------------------------------------------------
+1. Token: use a Calendly Personal Access Token (PAT).
+   - The READ-ONLY PAT is enough for every check here (it has scheduled_events:read,
+     users:read, organizations:read, webhooks:read). Prefer it over the write PAT.
+   - The real token values are in credentials.txt (gitignored) — do NOT paste a
+     token into any shared/committed file.
+2. For each request, open the Authorization tab:
+     Type = Bearer Token
+     Token = <paste the PAT>
+   (Or add a header:  Authorization: Bearer <PAT>)
+3. Accept the JSON response as-is. Postman "Pretty" view makes it readable.
+
+ACCOUNT IDS (James Castrission's Calendly org — constant for all calls)
+   user URI : https://api.calendly.com/users/DDCBR44S6ZIKC53U
+   org  URI : https://api.calendly.com/organizations/HAECQY77EPHMW3ZX
+   webhook subscription id : 549095f0-d123-4b3a-8206-8116f613efee
+
+--------------------------------------------------------------------------------
+CHECK 1 — LIST RECENT BOOKINGS (scheduled events)
+--------------------------------------------------------------------------------
+Method: GET
+URL:
+  https://api.calendly.com/scheduled_events?organization=https://api.calendly.com/organizations/HAECQY77EPHMW3ZX&user=https://api.calendly.com/users/DDCBR44S6ZIKC53U&count=20&sort=start_time:desc
+
+Notes:
+- This lists EVENTS, and each row shows only the HOST (user_email = james@...),
+  NOT the person who booked. To find a specific booker's email, use Check 2.
+- To find a brand-new test booking, look at "created_at" (when it was booked),
+  not "start_time" (the meeting slot, which may be days out).
+- Filter options you can add to the URL:
+    &status=active            only live bookings (omit cancelled)
+    &min_start_time=2026-10-01T00:00:00Z   &max_start_time=2026-12-01T00:00:00Z
+    &invitee_email=julienne@myadventuregroup.com.au   (find by booker directly)
+- Grab the event's "uri" (ends in a UUID) for Check 2.
+
+--------------------------------------------------------------------------------
+CHECK 2 — SEE WHO BOOKED + THE TRACKING/UTM + FORM ANSWERS (invitees)
+--------------------------------------------------------------------------------
+Method: GET
+URL (replace {EVENT_UUID} with the UUID from the event's uri in Check 1):
+  https://api.calendly.com/scheduled_events/{EVENT_UUID}/invitees
+
+Example (the 29 Oct test booking):
+  https://api.calendly.com/scheduled_events/0e327783-68db-40e8-a77e-ec6343195f96/invitees
+
+What to read in the response (collection[0]):
+- "email" / "name"  -> who actually booked.
+- "tracking"        -> utm_source / utm_medium / utm_campaign / utm_term /
+                       utm_content and salesforce_uuid (carries gclid:/msclkid:
+                       for ad clicks). This is the attribution data that the
+                       webhook sent to MarketingIQ.
+                       * A direct/manual booking shows utm_source "Organic search"
+                         (or blanks) and no gclid — that's expected, it just means
+                         the booking didn't come from an ad click.
+- "questions_and_answers" -> the booking form answers. NOTE: Calendly only
+                       returns ANSWERED questions here. An optional question left
+                       blank (e.g. a blank "Reference code / Tracking ID") will
+                       NOT appear — its absence doesn't prove the field is missing
+                       from the form. Confirm form fields in the Calendly event-
+                       type editor, not via this API.
+
+--------------------------------------------------------------------------------
+CHECK 3 — WEBHOOK SUBSCRIPTION HEALTH (did deliveries keep succeeding)
+--------------------------------------------------------------------------------
+Method: GET
+URL:
+  https://api.calendly.com/webhook_subscriptions/549095f0-d123-4b3a-8206-8116f613efee
+
+Read these two fields:
+  "state"            -> should be "active". If Calendly disabled it after repeated
+                        failures it becomes "disabled".
+  "retry_started_at" -> should be null. If it's a timestamp, Calendly's deliveries
+                        to MarketingIQ started FAILING (endpoint returned non-2xx)
+                        and it's retrying.
+Interpretation after a test booking:
+  active + retry_started_at null  -> MarketingIQ is accepting the webhooks (good).
+  disabled OR retry_started_at set -> deliveries are failing; tell Matt.
+
+(Optional) list all subscriptions instead of one:
+  https://api.calendly.com/webhook_subscriptions?organization=https://api.calendly.com/organizations/HAECQY77EPHMW3ZX&scope=user&user=https://api.calendly.com/users/DDCBR44S6ZIKC53U
+
+--------------------------------------------------------------------------------
+TYPICAL TEST-BOOKING VERIFICATION FLOW
+--------------------------------------------------------------------------------
+1. Make the test Discovery Call booking.
+2. Check 1 -> find it by newest "created_at" (or add &invitee_email=...).
+3. Check 2 -> confirm the booker email + the tracking/UTM it carried.
+4. Check 3 -> confirm the subscription stayed "active" / retry_started_at null.
+5. Ask Matt to confirm it arrived in MarketingIQ and was attributed correctly.
+================================================================================

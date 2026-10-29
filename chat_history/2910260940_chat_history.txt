@@ -1,0 +1,240 @@
+================================================================================
+CHAT HISTORY EXPORT — 2026-10-29
+Session: Register the Calendly → MarketingIQ webhook, verify the test booking via
+Postman-style GET checks, and document it. Supersedes 2910260848 (same session,
+extended with the verification + instructions-file work).
+================================================================================
+
+NOTE ON REDACTIONS: Two kinds of sensitive content were redacted below.
+(1) Secrets read from / pasted into credentials.txt and echoed in tool output:
+the Calendly webhook signing key, a read-only Calendly PAT, and a write-capable
+Calendly PAT — all shown as [REDACTED_*]. (2) Third-party booking data that
+appeared when a saved Calendly bookings response was read (a real prospect's
+email, invitee names, Zoom password and meeting join links): these are summarized
+rather than reproduced, since this file is committed to a repo. The user's own
+test booking (julienne@…, "test one") is retained.
+
+--------------------------------------------------------------------------------
+USER:
+(/q) Pointed at the email PDF ("Re: Calendly tracking setup…") and credentials.txt
+— what do I do with the webhook?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read both. The Oct 9–27 2026 thread (Cloverly Yadao <-> Matt Isaac / Sana Fathima,
+Simple Digital) shows Simple Digital's tool "MarketingIQ" (app.marketingiq.com.au)
+needs a Calendly webhook pushing Discovery Call bookings to their endpoint; by
+Matt's Oct 27 email their side is configured and MAG is cleared to register it,
+then make a test booking. Explained the two credentials.txt values (WEBHOOK
+callback URL ending in Project ID cmu6g36zq0000ssi8f4ybnw52; the signing key
+[REDACTED_SIGNING_KEY]) and that the webhook is registered via Calendly's API-only
+Webhook Subscriptions endpoint with a PAT, scope "user" (MarketingIQ filters to
+Discovery Call). Laid out the sequence.
+
+--------------------------------------------------------------------------------
+USER:
+(/q) MarketingIQ is the agency's tool; MAG already has
+mag_calendly_ac_sync_edge_functions.txt. How is theirs better?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read that 6-line note and the live source of MAG's calendly-source-sync edge
+function (Supabase project aivitcomiywiysrfwqxt). Concluded theirs is NOT better
+at the core job — MAG's cron job already reads each booking's tracking, derives a
+lead channel and WRITES it into ActiveCampaign (creates/tags contacts), feeding a
+broader dashboard. MarketingIQ's genuine edges: real-time webhook push vs MAG's
+3-day batch, and it lives in the agency's own ad-optimisation stack as an
+independent cross-check. Both share the blind spot that direct links arrive with
+no tracking. Noted MarketingIQ internals are inferred from the email thread only.
+
+--------------------------------------------------------------------------------
+USER:
+(no longer /q) What do I do on my end to accomplish what Matt wants?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Plan: register the webhook (Calendly API-only), make a test booking, email Matt.
+Provided the two-step curl (GET /users/me for URIs, then POST
+/webhook_subscriptions). Flagged the Calendly PAT was not yet in credentials.txt.
+
+--------------------------------------------------------------------------------
+USER:
+Token is now in credentials.txt.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read it (calendly_personal_access_token = [REDACTED_READONLY_PAT]); valid,
+resolved to James Castrission (user DDCBR44S6ZIKC53U, org HAECQY77EPHMW3ZX). BUT
+decoding the JWT showed it READ-ONLY (webhooks:read only, no write). Attempted the
+POST for a definitive error — blocked by Claude Code's auto-mode classifier.
+Told the user to generate a write-capable PAT.
+
+--------------------------------------------------------------------------------
+USER:
+Can't I register this in the Calendly website? (/q)
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+No — Calendly webhook subscriptions are API-only; the UI only mints tokens.
+Zapier/Make deliver to themselves, not MarketingIQ's endpoint, so not a
+substitute. The on-form "Reference code / Tracking ID" question IS a UI thing,
+but is separate from the webhook.
+
+--------------------------------------------------------------------------------
+USER:
+(/q) Screenshot of Calendly "Token scopes" (all six groups checked). Grant
+read/write to all?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Advised least-privilege: Webhooks WITH write is the one that matters; User
+management read for the /users/me lookup; rest skippable. (Later corrected: see
+below — invitee.created also needs scheduled_events:read.)
+
+--------------------------------------------------------------------------------
+USER:
+Added CALENDLY_PAT_WEBHOOK_WRITE.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read it ([REDACTED_WRITE_PAT]); scopes now included webhooks:write. Attempted the
+POST; blocked again by the classifier. Gave the user the full registration command
+to run themselves with the in-session "! " prefix.
+
+--------------------------------------------------------------------------------
+USER:
+Ran it. Result: HTTP 400 — "missing required scope: scheduled_events:read for
+event: invitee.created".
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Owned the scope mistake: invitee.created also needs scheduled_events:read (under
+the Scheduling group). Told the user to regenerate the PAT adding Scheduling,
+replace line 4 in credentials.txt, and re-run the same command.
+
+--------------------------------------------------------------------------------
+USER:
+Ran it again. Result: HTTP 201 — subscription active.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Confirmed: webhook subscription 549095f0-d123-4b3a-8206-8116f613efee ACTIVE,
+callback to the MarketingIQ endpoint, event invitee.created, scope user. Gave the
+remaining steps (test booking, email Matt) and flagged credentials.txt holds live
+tokens in plaintext — rotate/delete after setup.
+
+--------------------------------------------------------------------------------
+USER:
+/dcp (first run).
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Created chat_history/2910260848_chat_history.txt (secrets redacted), as_built.txt,
+CLAUDE.md, and .gitignore (credentials.txt + token/key patterns ignored). No git
+commands run.
+
+--------------------------------------------------------------------------------
+USER:
+/cm — compose a one-line commit.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Inspected git: credentials.txt was STAGED. Flagged it (live tokens) and gave a
+one-liner that unstages it (git reset credentials.txt) then adds+commits the rest.
+(User subsequently committed as a8b9922 and pushed; credentials.txt excluded.)
+
+--------------------------------------------------------------------------------
+USER:
+(/q) Is there no way for me to view the webhook logs after a test booking?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read the subscription (GET): state active, retry_started_at null. Explained you
+can't see webhook delivery payloads (Calendly exposes none; MarketingIQ is the
+agency's). But you CAN watch subscription health (state / retry_started_at), read
+the booking + its tracking, and (separately) MAG's own Supabase table. Mentioned
+the webhook.site capture trick as an option (an action, not done under /q).
+
+--------------------------------------------------------------------------------
+USER:
+Draft an email to Matt — registration and test booking done.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Drafted a reply-on-thread email (webhook registered + active; test booking at
+[fill-in time]; asks Matt to confirm arrival/attribution). Left booking time and
+sign-off (Cloverly vs Julienne) as fill-ins. Offered to create it as a Gmail draft;
+did not send.
+
+--------------------------------------------------------------------------------
+USER:
+(/q) Can I use Postman to read the bookings logged so far?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Yes — Postman is just an HTTP client; same GETs. Demonstrated GET /scheduled_events
+(returned recent Discovery Calls). Explained Postman reads Calendly bookings +
+webhook health, but NOT the webhook delivery payloads or MarketingIQ's records.
+Gave the Postman setup (Bearer token, the list + invitees endpoints).
+
+--------------------------------------------------------------------------------
+USER:
+I test booked using julienne@myadventuregroup.com.au — is it in
+postman_response_booking_list.txt?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read the saved response. The list shows only the HOST (james@…) per row, so the
+booker isn't visible there. Identified the newest-created event (created
+2026-10-29 01:12 UTC, Nov 2 slot) as the likely test and read its /invitees:
+CONFIRMED invitee julienne@myadventuregroup.com.au, name "test one", active.
+Tracking: utm_source "Organic search", no gclid/UTM — i.e. treated as a direct/
+organic booking (expected for a manual test). FLAGGED: the form Q&A returned
+Mobile Number as position 1, with no "Reference code / Tracking ID" answer — so
+either it was blank (direct booking; Calendly omits blank optional answers) or the
+field isn't currently first/on the form. Recommended confirming the field in the
+Calendly event-type editor (not checkable via API).
+(NOTE: the saved response also contained a third-party prospect email, invitee
+names, a Zoom password and meeting join links — redacted here and flagged below.)
+
+--------------------------------------------------------------------------------
+USER:
+Create an instruction txt file re these Postman GET checks.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Wrote postman_get_checks_instructions.txt — Bearer-token setup (read-only PAT is
+enough; no token values in the file), the account IDs, and three read-only checks:
+(1) list recent bookings, (2) invitee + tracking + Q&A for an event, (3) webhook
+subscription health — plus interpretation notes and a test-booking verification
+flow.
+
+--------------------------------------------------------------------------------
+USER:
+(/q) Do I need to dcp, or just update git?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Checked git: already committed+pushed (a8b9922); two untracked files since —
+postman_get_checks_instructions.txt (clean) and postman_response_booking_list.txt.
+Explained dcp (writes docs) and git (version-controls) are not substitutes;
+recommended dcp-then-commit since real work happened since last dcp. STRONGLY
+flagged postman_response_booking_list.txt contains third-party PII (a prospect
+email), invitee names, a Zoom password and meeting join links, is NOT covered by
+.gitignore, and should be deleted or gitignored before any commit.
+
+--------------------------------------------------------------------------------
+USER:
+/dcp (this run).
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Wrote this transcript (secrets + third-party booking data redacted). Updated
+as_built.txt and CLAUDE.md to add postman_get_checks_instructions.txt, the test
+booking confirmation, and the open Reference-code-field question. Updated
+.gitignore to exclude postman_response_booking_list.txt (and a postman_response_*
+pattern) so the PII/meeting-credential file won't be committed. No git commands run.
+
+================================================================================
+END OF EXPORT
+================================================================================

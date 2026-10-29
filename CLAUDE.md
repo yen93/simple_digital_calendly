@@ -45,6 +45,29 @@ the Calendly webhook against the API.
 - Never write any token/key value into committed files (as_built.txt, CLAUDE.md,
   chat history) — redact.
 
+## Verifying a test booking (read-only)
+See `postman_get_checks_instructions.txt` for the full Postman writeup. Quick API
+version (read-only PAT is enough — needs `scheduled_events:read`):
+- List bookings: `GET /scheduled_events?organization=<org>&user=<user>&sort=start_time:desc`.
+  Rows show only the HOST (`james@`); find a new test by `created_at`, or add
+  `&invitee_email=<email>`.
+- Booker + attribution: `GET /scheduled_events/{uuid}/invitees` → `email`, `tracking`
+  (utm_*/salesforce_uuid), `questions_and_answers`.
+- Webhook health: `GET /webhook_subscriptions/549095f0-…` → want `state: active`,
+  `retry_started_at: null`.
+
+Gotcha: `questions_and_answers` only returns ANSWERED questions — a blank optional
+field (e.g. an unfilled "Reference code / Tracking ID") is omitted, so you can't
+prove a form field exists/ordering from it. Confirm form fields in the Calendly
+event-type editor.
+
+OPEN ITEM (as of 2026-10-29): on the verified test booking, position 1 was
+"Mobile Number" with no Reference-code answer — so the "Reference code (auto-filled
+– please leave as is)" question may not be the first question / on the form. Needs
+a manual check in Calendly before telling Simple Digital the attribution path is
+fully wired. The done test booking was organic/direct (no UTM), so it tested the
+webhook plumbing, not the ad-attribution matching.
+
 ## Register / inspect the webhook
 ```bash
 # values pulled from credentials.txt; run with the "! " prefix (classifier blocks tool-run POSTs)

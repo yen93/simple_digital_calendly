@@ -10,6 +10,11 @@ myadventuregroup) to Simple Digital's "MarketingIQ" attribution tool via a
 Calendly webhook. It is a setup/ops workspace, not an application codebase — the
 one action performed here was registering the webhook against the Calendly API.
 
+REFERENCE DOCS (in this folder)
+- postman_get_checks_instructions.txt — step-by-step for the three read-only
+  Calendly GET checks (list bookings / invitee+tracking / webhook health). Safe
+  to commit (no secrets or data).
+
 EXTERNAL INTEGRATIONS
 - Calendly API (api.calendly.com) — REST, Bearer Personal Access Token (PAT).
   Account: James Castrission, user DDCBR44S6ZIKC53U, org HAECQY77EPHMW3ZX.
@@ -28,6 +33,11 @@ REGISTERED WEBHOOK (done 2026-10-29)
   Registered via POST https://api.calendly.com/webhook_subscriptions.
   Scopes required on the PAT: webhooks:write + scheduled_events:read
   (+ users:read / organizations:read for the /users/me lookup).
+- Test booking verified 2026-10-29: invitee julienne@myadventuregroup.com.au
+  ("test one"), event 0e327783-68db-40e8-a77e-ec6343195f96, active. Tracking was
+  utm_source "Organic search" / no gclid (a direct booking — exercises the webhook
+  plumbing, not the ad-attribution path). Subscription health at that time:
+  state active, retry_started_at null.
 
 CREDENTIALS (credentials.txt — gitignored, plaintext; rotate/delete setup tokens)
 - WEBHOOK — MarketingIQ callback URL (not secret, but kept with the set).
@@ -56,8 +66,19 @@ REFERENCE
   functions above.
 
 OUTSTANDING
-- Make one test Discovery Call booking and notify Matt to verify attribution.
+- Notify Matt to verify the test booking arrived in MarketingIQ and was attributed
+  (test booking itself is done — see REGISTERED WEBHOOK above).
 - Confirm the "Reference code (auto-filled – please leave as is)" question is the
-  first question on the Discovery Call form (Calendly UI — not verifiable via API
-  tools here).
+  FIRST question on the Discovery Call form. Open item: the 29 Oct test booking's
+  form answers returned Mobile Number as position 1 with no Reference-code answer,
+  so the field may not be first / present. Not verifiable via API (Calendly only
+  returns answered questions) — check in the Calendly event-type editor.
+- Optionally run a booking through a UTM-tagged link to test the ad-attribution
+  path end-to-end (the done test was organic/direct).
+- Rotate/delete the Calendly PATs in credentials.txt now that setup is complete.
+
+LOCAL-ONLY / DO NOT COMMIT
+- postman_response_booking_list.txt — a saved raw Calendly bookings response.
+  Contains third-party prospect PII, invitee names, a Zoom password and meeting
+  join links. Gitignored (postman_response_*). Delete when no longer needed.
 ================================================================================
