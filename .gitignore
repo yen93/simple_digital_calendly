@@ -1,0 +1,19 @@
+# Credentials / secrets — NEVER commit
+credentials.txt
+*creds*.txt
+*token*.txt
+*secret*.txt
+secrets/
+.env
+*.env
+*.pem
+*.key
+*service-account*.json
+*-sa.json
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db

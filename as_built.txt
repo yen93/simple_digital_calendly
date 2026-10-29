@@ -1,0 +1,63 @@
+================================================================================
+AS-BUILT — simple_digital_calendly
+Last updated: 2026-10-29
+================================================================================
+
+PURPOSE
+This folder holds the credentials, reference email, and setup record for
+connecting MAG's Calendly (James Castrission's account, calendly.com/
+myadventuregroup) to Simple Digital's "MarketingIQ" attribution tool via a
+Calendly webhook. It is a setup/ops workspace, not an application codebase — the
+one action performed here was registering the webhook against the Calendly API.
+
+EXTERNAL INTEGRATIONS
+- Calendly API (api.calendly.com) — REST, Bearer Personal Access Token (PAT).
+  Account: James Castrission, user DDCBR44S6ZIKC53U, org HAECQY77EPHMW3ZX.
+  Tokens stored in credentials.txt (gitignored). Webhook subscriptions are
+  API-only (no Calendly UI for them).
+- MarketingIQ (app.marketingiq.com.au) — Simple Digital's third-party tool.
+  Receives Calendly booking webhooks at
+  /api/webhooks/calendly/cmu6g36zq0000ssi8f4ybnw52 (the trailing id is Simple
+  Digital's Project ID). Verifies each payload with a shared signing key.
+
+REGISTERED WEBHOOK (done 2026-10-29)
+- Calendly webhook_subscription 549095f0-d123-4b3a-8206-8116f613efee — ACTIVE.
+  callback_url: https://app.marketingiq.com.au/api/webhooks/calendly/cmu6g36zq0000ssi8f4ybnw52
+  events: ["invitee.created"]  ·  scope: "user" (all James's event types;
+  MarketingIQ filters to Discovery Call and discards the rest).
+  Registered via POST https://api.calendly.com/webhook_subscriptions.
+  Scopes required on the PAT: webhooks:write + scheduled_events:read
+  (+ users:read / organizations:read for the /users/me lookup).
+
+CREDENTIALS (credentials.txt — gitignored, plaintext; rotate/delete setup tokens)
+- WEBHOOK — MarketingIQ callback URL (not secret, but kept with the set).
+- CALENDLY_WEBHOOK_SIGNING_KEY — shared HMAC signing key. Canonical copy lives in
+  Google Secret Manager (secret CALENDLY_WEBHOOK_SIGNING_KEY, project
+  claudegwscli502400). Also shared securely with Matt Isaac (Simple Digital).
+- calendly_personal_access_token — READ-ONLY Calendly PAT (no webhook write).
+- CALENDLY_PAT_WEBHOOK_WRITE — write-capable Calendly PAT used to register the
+  webhook (needs scheduled_events:read too). One-time use; safe to rotate/delete.
+
+RELATED (MAG side, NOT in this folder — lives in Supabase project
+aivitcomiywiysrfwqxt / MAGTestProject)
+- Edge function calendly-source-sync — pg_cron Mon–Fri 06:00 PHT, 3-day
+  look-back; reads Calendly bookings' tracking and writes source to
+  ActiveCampaign (Src fields 77–83), creates/tags contacts. Logs to
+  public.calendly_src_sync_runs + public.calendly_src_sync_bookings.
+- Edge function new-paid-leads-sync — enrichment; mirrors AC "Src-" fields into
+  public.ac_new_leads at form submit.
+  These are MAG's own, independent Calendly→AC attribution path; MarketingIQ is a
+  parallel agency-side tool (real-time webhook), kept alongside by agreement.
+
+REFERENCE
+- "My Adventure Group Mail - Re_ Calendly tracking setup, a quick correction and
+  a suggestion.pdf" — the full Oct 9–27 2026 email thread with Simple Digital.
+- mag_calendly_ac_sync_edge_functions.txt — short description of the two MAG edge
+  functions above.
+
+OUTSTANDING
+- Make one test Discovery Call booking and notify Matt to verify attribution.
+- Confirm the "Reference code (auto-filled – please leave as is)" question is the
+  first question on the Discovery Call form (Calendly UI — not verifiable via API
+  tools here).
+================================================================================

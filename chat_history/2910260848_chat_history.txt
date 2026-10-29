@@ -1,0 +1,176 @@
+================================================================================
+CHAT HISTORY EXPORT — 2026-10-29
+Session: Register the Calendly → MarketingIQ webhook Simple Digital asked for,
+plus Q&A comparing their tool against MAG's own Calendly→ActiveCampaign sync.
+================================================================================
+
+NOTE ON REDACTIONS: This session involved live secrets pasted into / read from
+credentials.txt and echoed in tool output: the Calendly webhook signing key, a
+read-only Calendly Personal Access Token, and a write-capable Calendly PAT
+(CALENDLY_PAT_WEBHOOK_WRITE). All three have been replaced below with
+[REDACTED_*] placeholders. The real values live in credentials.txt (gitignored)
+and, for the signing key, in Google Secret Manager.
+
+--------------------------------------------------------------------------------
+USER:
+(/q read-only mode) Pointed at an email PDF ("Re: Calendly tracking setup, a
+quick correction and a suggestion") and credentials.txt, asked: what do I do
+with the webhook?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read both files. The email thread (Cloverly Yadao <-> Matt Isaac / Sana Fathima
+of Simple Digital, Oct 9–27 2026) establishes that Simple Digital runs a tool
+("MarketingIQ", app.marketingiq.com.au) that needs a Calendly webhook pushing
+Discovery Call bookings to their endpoint. By Matt's Oct 27 email, their side is
+configured with the signing key and MAG is cleared to register the webhook, then
+make one test booking.
+
+Explained the two credentials.txt values: WEBHOOK (the callback URL, ending in
+Simple Digital's Project ID cmu6g36zq0000ssi8f4ybnw52) and
+CALENDLY_WEBHOOK_SIGNING_KEY ([REDACTED_SIGNING_KEY]) which Calendly uses to
+sign each payload. Clarified the webhook is registered via Calendly's API-only
+Webhook Subscriptions endpoint (POST /webhook_subscriptions) using a Calendly
+Personal Access Token, with scope "user" (all event types; MarketingIQ filters
+to Discovery Call). Laid out the full sequence: confirm the "Reference code"
+form question is live, register the webhook, make a test booking, notify Matt.
+
+--------------------------------------------------------------------------------
+USER:
+(/q) Clarified MarketingIQ is a tool the third-party agency (Simple Digital) is
+building; MAG already has mag_calendly_ac_sync_edge_functions.txt on its end.
+How is theirs better?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read mag_calendly_ac_sync_edge_functions.txt (a 6-line description of two edge
+functions) and grounded the comparison against the live Supabase project
+(MAGTestProject, ref aivitcomiywiysrfwqxt). Pulled the full source of
+calendly-source-sync.
+
+Findings: MAG's calendly-source-sync is a pg_cron batch job (Mon–Fri 06:00 PHT,
+3-day look-back) that reads each Calendly booking's tracking object (utm_* +
+salesforce_uuid carrying gclid/msclkid), derives a lead channel, and WRITES into
+ActiveCampaign (creates contact if missing, fills Src fields 77–83, tags, never
+overwrites first-touch), logging to calendly_src_sync_runs/_bookings which feed
+a broader dashboard (alongside GA4, Google/Bing ad spend, Xero, deals syncs).
+
+Conclusion given: for the core attribution job theirs is NOT better — MAG's does
+more (it actually enriches the CRM; MarketingIQ appears read/report-only).
+Theirs' genuine edges are (1) real-time webhook push vs MAG's up-to-3-day batch,
+which matters for feeding conversions back to the ad platforms Simple Digital
+manages, and (2) it lives in the agency's own stack as an independent
+cross-check. Both share the same blind spot: direct links (email/LinkedIn/
+signature) arrive with no tracking. Noted MarketingIQ internals are inferred
+from the email thread only (third-party app behind a login).
+
+--------------------------------------------------------------------------------
+USER:
+(no longer /q) OK, what do I do on my end to accomplish what Matt wants?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Laid out the plan: register the webhook (Calendly API-only), make a test
+Discovery Call booking, email Matt. Captured that registering needs the Calendly
+Personal Access Token (not in credentials.txt at that point) plus the URL and
+signing key. Provided the two-step curl (GET /users/me for user+org URIs, then
+POST /webhook_subscriptions) and offered to run it once the token was available.
+
+--------------------------------------------------------------------------------
+USER:
+Token is now in credentials.txt.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read credentials.txt; the token (calendly_personal_access_token =
+[REDACTED_READONLY_PAT]) was valid and resolved to James Castrission's account
+(user DDCBR44S6ZIKC53U, org HAECQY77EPHMW3ZX, calendly.com/myadventuregroup) via
+GET /users/me. BUT decoding the JWT scopes showed it was READ-ONLY (only
+webhooks:read, no write). Flagged that registration would fail without
+webhooks:write. Attempted the POST anyway for a definitive error — it was blocked
+by Claude Code's auto-mode permission classifier ("Account & Standing-Rule
+Changes"). Told the user to generate a write-capable PAT from the Calendly
+dashboard.
+
+--------------------------------------------------------------------------------
+USER:
+Can't I register this webhook in the Calendly website? (/q)
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+No — Calendly has no UI to create webhook subscriptions; they are API-only. The
+"API & webhooks" settings page only generates tokens / manages OAuth. Third-party
+connectors (Zapier/Make) deliver to themselves, not to MarketingIQ's endpoint, so
+they're not a substitute. Noted the "Reference code / Tracking ID" form question
+IS done in the Calendly UI, but the webhook is separate and API-only.
+
+--------------------------------------------------------------------------------
+USER:
+(/q) Shared a screenshot of the Calendly "Token scopes" creation screen (all six
+groups checked: Scheduling, User management, Contacts, Notetaker, Security &
+Compliance, Webhooks). Do I grant read/write to all these scopes?
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Advised least-privilege: the one that matters is Webhooks WITH write (what the
+old token lacked); User management read lets the /users/me lookup resolve URIs;
+the rest can be skipped. Noted that storing a full-scope token in plaintext
+credentials.txt is riskier, and to delete/rotate after setup.
+(NOTE: this advice was later corrected — see below — because invitee.created also
+requires scheduled_events:read, which lives under the Scheduling group.)
+
+--------------------------------------------------------------------------------
+USER:
+I added the CALENDLY_PAT_WEBHOOK_WRITE.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Read credentials.txt; new token (CALENDLY_PAT_WEBHOOK_WRITE =
+[REDACTED_WRITE_PAT]) had scopes webhooks:read webhooks:write groups:read
+organizations:read users:read — write scope now present. Attempted the POST
+registration; again blocked by the auto-mode classifier. Provided the full
+registration command for the user to run themselves via the "! " in-session
+prefix.
+
+--------------------------------------------------------------------------------
+USER:
+Ran the registration command. Result: HTTP 400 —
+"missing required scope: scheduled_events:read for event: invitee.created".
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Owned the earlier scope mistake: subscribing to invitee.created requires
+scheduled_events:read (under the Scheduling group), which the write token lacked.
+Told the user to regenerate the PAT including Scheduling (scheduled_events:read)
+in addition to Webhooks (write) + User management (read), replace line 4 in
+credentials.txt, and re-run the same command.
+
+--------------------------------------------------------------------------------
+USER:
+Ran the registration command again (with the new token). Result: HTTP 201 —
+subscription active.
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Confirmed success: webhook subscription
+549095f0-d123-4b3a-8206-8116f613efee is active, callback to
+app.marketingiq.com.au/api/webhooks/calendly/cmu6g36zq0000ssi8f4ybnw52, event
+invitee.created, scope user. Gave the two remaining steps (make one test
+Discovery Call booking; email Matt to confirm attribution) and flagged
+housekeeping: credentials.txt holds two live tokens + the signing key in
+plaintext — delete/rotate the setup tokens now; keep the signing key in Secret
+Manager. Offered to draft the email to Matt.
+
+--------------------------------------------------------------------------------
+USER:
+/dcp — save the chat, create/update as_built.txt, CLAUDE.md, .gitignore (no git).
+
+--------------------------------------------------------------------------------
+ASSISTANT:
+Created chat_history/ and this transcript (secrets redacted). Created
+as_built.txt, CLAUDE.md, and .gitignore (credentials.txt and token/signing-key
+patterns ignored). Did NOT run any git commands — user handles commit/push.
+
+================================================================================
+END OF EXPORT
+================================================================================

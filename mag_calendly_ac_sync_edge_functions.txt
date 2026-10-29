@@ -1,0 +1,6 @@
+## calendly-source-sync (public.calendly_src_sync_bookings)
+The spine — one row per Calendly booking (unique by email), carrying the derived lead channel ('Google Ads', 'Microsoft Ads', 'Organic search', etc.)
+
+
+## new-paid-leads-sync (public.ac_new_leads)
+Enrichment — the AC "Src-" fields (utm_, gclid, landing page, first-touch) captured on the contact at form submit
